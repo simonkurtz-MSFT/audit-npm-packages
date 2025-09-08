@@ -7,13 +7,21 @@ your development folder) to find projects and collect any critical vulnerabiliti
 reported by npm. It was created to help triage incidents involving compromised
 packages and to produce reproducible JSON reports for further analysis.
 
-Requirements
-------------
+## Requirements
+
 - Python 3.8+
 - Node.js and npm installed and available on PATH (the script checks this at startup)
 
-Quick start
------------
+## What the script does
+
+- Recursively finds folders that contain `package.json` or `package-lock.json`.
+- Runs `npm audit --json` inside each discovered project.
+- Produces two JSON files in the current directory:
+  - `audits-<start>_<timestamp>.json` — the full audit report (projects and raw audit JSON)
+  - `audits-<start>_<timestamp>_critical_versions.json` — a summarized map of module@version occurrences for critical findings
+
+## Usage
+
 Audit a folder (recursively) and produce JSON outputs:
 
 ```shell
@@ -24,33 +32,54 @@ python .\run_npm_audits.py --start C:\Dev
 python .\run_npm_audits.py -s C:\Dev
 ```
 
-What the script does
---------------------
-- Recursively finds folders that contain `package.json` or `package-lock.json`.
-- Runs `npm audit --json` inside each discovered project.
-- Produces two JSON files in the current directory:
-  - `audits-<start>_<timestamp>.json` — the full audit report (projects and raw audit JSON)
-  - `audits-<start>_<timestamp>_critical_versions.json` — a summarized map of module@version occurrences for critical findings
+### Check an explicit list of module@version pairs
 
-Notes on errors you may see
----------------------------
-- If `npm` or `node` are not available on PATH the script will abort early and print a short diagnostic showing `shutil.which()` results, `npm --version` / `node --version` if available, and the PATH entries seen by Python. This prevents noisy per-folder "not_found" errors.
+If you want to only highlight specific module@version combinations (for
+example, during an incident where certain packages/versions are known-compromised),
+create a JSON file containing an array of targets. Supported entry formats:
 
-- On Windows, npm may be installed as `npm.cmd`; the script resolves the actual executable on PATH and uses that resolved path for subprocess calls.
+Supported format:
+- Simple strings: ["lodash@4.17.21", "chalk@2.4.2"]
 
-Customization
--------------
-- The script intentionally exposes only a single CLI parameter (`--start`) to keep usage simple. If you want an `--output` or `--npm-path` option, I can add them back in.
+Run the script with the `--check-file` (or `-c`) option:
 
-Troubleshooting
----------------
-- If the script aborts because npm/node are missing, either install Node.js (https://nodejs.org/) or add the Node installation folder to your PATH. If you paste the diagnostic output here I can suggest the exact PATH change for Windows.
+```powershell
+python .\run_npm_audits.py -s C:\Dev -c C:\path\to\targets.json
+```
 
-License / Notes
----------------
+### Examples using the included `compromised_modules.json`
+
+PowerShell (from the repo root):
+
+```powershell
+python .\run_npm_audits.py -s C:\Dev -c .\compromised_modules.json
+```
+
+POSIX / WSL:
+
+```bash
+python ./run_npm_audits.py -s /mnt/c/Dev -c ./compromised_modules.json
+```
+
+Sample expected output (shortened):
+
+```
+Found 4 project directories under C:\Dev
+Auditing: C:\Dev\some\project
+...
+Wrote report to audits-Dev_20250908T135257-0400.json
+Wrote module@version summary to audits-Dev_20250908T135257-0400_critical_versions.json
+```
+
+When `--check-file` is provided the generated report and printed summary will
+only include matches for those module@version entries; other audit findings
+are ignored.
+
+## License / Notes
+
 This is a small utility intended for local, offline analysis and triage. Use at your own risk; audit results depend on the version of `npm` installed.
 
-Author
-------
+## Author
+
 Simon Kurtz
 GitHub: simonkurtz-MSFT

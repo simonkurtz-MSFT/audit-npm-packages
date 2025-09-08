@@ -82,6 +82,116 @@ def discover_project_dirs(start: str, exclude_venvs: bool = True) -> List[str]:
     return sorted(found)
 
 
+def load_check_targets(path: str) -> Set[str]:
+    """Load a JSON file containing an array of targets.
+
+    Expected format supported:
+    - ["module@version", "other@1.2.3"]
+
+    Returns a set of normalized strings: "module@version" with module lower-cased.
+    """
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except Exception as e:
+        raise SystemExit(f"Failed to load check file {path}: {e}")
+
+    targets: Set[str] = set()
+    if isinstance(data, list):
+        for item in data:
+            if not isinstance(item, str):
+                raise SystemExit(f"Invalid check file entry (must be strings like 'module@version'): {item!r}")
+            if '@' in item:
+                mod, ver = item.split('@', 1)
+                targets.add(f"{mod.lower()}@{ver}")
+    else:
+        raise SystemExit(f"Check file must contain a JSON array of targets: {path}")
+
+    return targets
+
+
+def _read_package_version_from_path(pkg_path: str) -> Any:
+    pj = os.path.join(pkg_path, 'package.json')
+    if os.path.exists(pj):
+        try:
+            with open(pj, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get('version')
+        except Exception:
+            return None
+    return None
+
+
+def _node_path_to_fs_path(node_path: str, project_root: str) -> str:
+    if os.path.isabs(node_path):
+        return node_path
+    return os.path.normpath(os.path.join(project_root, node_path))
+
+
+def _find_version_from_nodes(nodes: List[str], project_root: str) -> Any:
+    # Try to resolve package versions by walking up from node paths
+    for node in nodes:
+        fs_path = _node_path_to_fs_path(node, project_root)
+        cur = fs_path
+        for _ in range(6):
+            if os.path.isdir(cur):
+                ver = _read_package_version_from_path(cur)
+                if ver:
+                    return ver
+            parent = os.path.dirname(cur)
+            if not parent or parent == cur:
+                break
+            cur = parent
+    return None
+
+
+def issue_matches_targets(issue: Dict, targets: Set[str], project_root: str) -> bool:
+    """Return True if the issue corresponds to any target in `targets`.
+
+    Matching logic (best-effort):
+    - Check 'via' entries for module@version strings or dicts with 'version'
+    - Check finding.version, finding.range, issue.range
+    - Inspect 'nodes' and read nearby package.json versions
+    """
+    module = issue.get('module_name') or issue.get('id') or (issue.get('finding') or {}).get('name')
+    if not module:
+        return False
+    module_l = module.lower()
+    finding = issue.get('finding') or {}
+
+    # 1) via entries
+    via = finding.get('via') or []
+    if isinstance(via, list):
+        for v in via:
+            if isinstance(v, str) and '@' in v:
+                mod, ver = v.rsplit('@', 1)
+                if mod.lower() == module_l and f"{module_l}@{ver}" in targets:
+                    return True
+            elif isinstance(v, dict):
+                ver = v.get('version')
+                modname = v.get('name') or module
+                if ver and modname.lower() == module_l and f"{module_l}@{ver}" in targets:
+                    return True
+
+    # 2) direct version/range fields
+    ver = finding.get('version')
+    if ver and f"{module_l}@{ver}" in targets:
+        return True
+
+    rng = finding.get('range') or issue.get('range')
+    if rng and f"{module_l}@{rng}" in targets:
+        return True
+
+    # 3) nodes -> filesystem lookup
+    nodes = finding.get('nodes') or []
+    if isinstance(nodes, list) and nodes:
+        found = _find_version_from_nodes(nodes, project_root)
+        if found and f"{module_l}@{found}" in targets:
+            return True
+
+    return False
+
+
 def run_npm_audit(folder: str, timeout: int = 60) -> Dict:
     """Run `npm audit --json` in the given folder and return parsed JSON output or an error dict."""
 
@@ -149,6 +259,7 @@ def main(argv: List[str] | None = None) -> int:
     # Only accept a start path; all other settings are fixed to sensible defaults
     p = argparse.ArgumentParser(description='Run npm audit across discovered npm projects')
     p.add_argument('--start', '-s', help='Start folder to search (default current dir)', default='.')
+    p.add_argument('--check-file', '-c', help='Path to JSON file containing module@version entries to explicitly check')
     args = p.parse_args(argv)
 
     start = os.path.abspath(args.start)
@@ -166,6 +277,11 @@ def main(argv: List[str] | None = None) -> int:
 
     # Use the resolved npm executable
     run_npm_audit.cmdline = [npm_path, 'audit', '--json']
+    # Load explicit check targets if provided
+    check_targets: Set[str] | None = None
+    if args.check_file:
+        check_targets = load_check_targets(args.check_file)
+        print(f'Loaded {len(check_targets)} explicit package@version targets from {args.check_file}')
     timeout = 60
 
     # Keep excluding common Python virtualenvs by default
@@ -186,7 +302,15 @@ def main(argv: List[str] | None = None) -> int:
             data = res.get('data') or {}
             entry['raw'] = data
             issues = extract_critical_issues(data)
-            entry['critical_issues'] = issues
+            if check_targets:
+                # Filter issues: only keep those that match the explicit targets
+                filtered: List[Dict] = []
+                for issue in issues:
+                    if issue_matches_targets(issue, check_targets, proj):
+                        filtered.append(issue)
+                entry['critical_issues'] = filtered
+            else:
+                entry['critical_issues'] = issues
         report['results'].append(entry)
 
     # Tally critical counts
