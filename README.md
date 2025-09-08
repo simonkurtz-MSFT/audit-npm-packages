@@ -20,13 +20,44 @@ Audit a folder (recursively) and produce JSON outputs:
 python .\run_npm_audits.py --start C:\Dev
 ```
 
+```shell
+python .\run_npm_audits.py -s C:\Dev
+```
+
+What the script does
+# Audit NPM Packages
+
+Small, local Python tool to discover Node projects and run `npm audit --json` in each.
+
+The script is intended for quick, offline sweeps of a filesystem tree (for example,
+your development folder) to find projects and collect any critical vulnerabilities
+reported by npm. It was created to help triage incidents involving compromised
+packages and to produce reproducible JSON reports for further analysis.
+
+Requirements
+------------
+- Python 3.8+
+- Node.js and npm installed and available on PATH (the script checks this at startup)
+
+Quick start
+-----------
+Audit a folder (recursively) and produce JSON outputs:
+
+```powershell
+python .\run_npm_audits.py --start C:\Dev
+```
+
+```powershell
+python .\run_npm_audits.py -s C:\Dev
+```
+
 What the script does
 --------------------
 - Recursively finds folders that contain `package.json` or `package-lock.json`.
 - Runs `npm audit --json` inside each discovered project.
 - Produces two JSON files in the current directory:
-	- `audits-<start>_<timestamp>.json` — the full audit report (projects and raw audit JSON)
-	- `audits-<start>_<timestamp>_critical_versions.json` — a summarized map of module@version occurrences for critical findings
+  - `audits-<start>_<timestamp>.json` — the full audit report (projects and raw audit JSON)
+  - `audits-<start>_<timestamp>_critical_versions.json` — a summarized map of module@version occurrences for critical findings
 
 Notes on errors you may see
 ---------------------------

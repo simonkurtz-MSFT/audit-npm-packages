@@ -87,13 +87,7 @@ def run_npm_audit(folder: str, timeout: int = 60) -> Dict:
 
     try:
         # Use subprocess to run npm audit
-        proc = subprocess.run(
-            run_npm_audit.cmdline,
-            cwd=folder,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        proc = subprocess.run(run_npm_audit.cmdline, cwd=folder, capture_output=True, text=True, timeout=timeout, )
     except subprocess.TimeoutExpired:
         return {'error': 'timeout', 'folder': folder}
     except FileNotFoundError as e:
