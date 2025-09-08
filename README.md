@@ -7,6 +7,28 @@ your development folder) to find projects and collect any critical vulnerabiliti
 reported by npm. It was created to help triage incidents involving compromised
 packages and to produce reproducible JSON reports for further analysis.
 
+## Quick Usage
+
+### Audit a folder (recursively) and produce JSON outputs:
+
+```shell
+python .\run_npm_audits.py --start C:\Dev
+```
+
+```shell
+python .\run_npm_audits.py -s C:\Dev
+```
+
+### Audit a specific set of modules and versions
+
+```shell
+python .\run_npm_audits.py --start C:\Dev --check-file .\compromised_modules.json
+```
+
+```shell
+python .\run_npm_audits.py -s C:\Dev -c .\compromised_modules.json
+```
+
 ## Requirements
 
 - Python 3.8+
@@ -17,20 +39,10 @@ packages and to produce reproducible JSON reports for further analysis.
 - Recursively finds folders that contain `package.json` or `package-lock.json`.
 - Runs `npm audit --json` inside each discovered project.
 - Produces two JSON files in the current directory:
-  - `audits-<start>_<timestamp>.json` — the full audit report (projects and raw audit JSON)
-  - `audits-<start>_<timestamp>_critical_versions.json` — a summarized map of module@version occurrences for critical findings
+  - `audits-<start_directory>_<timestamp>.json` — the full audit report (projects and raw audit JSON)
+  - `audits-<start_directory>_<timestamp>_critical_versions.json` — a summarized map of module@version occurrences for critical findings
 
 ## Usage
-
-Audit a folder (recursively) and produce JSON outputs:
-
-```shell
-python .\run_npm_audits.py --start C:\Dev
-```
-
-```shell
-python .\run_npm_audits.py -s C:\Dev
-```
 
 ### Check an explicit list of module@version pairs
 
@@ -46,6 +58,16 @@ Run the script with the `--check-file` (or `-c`) option:
 ```powershell
 python .\run_npm_audits.py -s C:\Dev -c C:\path\to\targets.json
 ```
+
+Version matching
+----------------
+The check-file matching is exact by default:
+
+- Module names are compared case-insensitively (they are normalized to lower-case).
+- Versions are matched by exact string equality (for example `chalk@5.6.1` only matches the literal version `5.6.1`).
+- Semver ranges (for example `chalk@^5.0.0`) are not supported today and will be treated as literal strings.
+
+If you need semver/range support, please file an issue in this repo.
 
 ### Examples using the included `compromised_modules.json`
 
