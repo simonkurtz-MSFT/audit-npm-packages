@@ -6,24 +6,20 @@ The script is intended for quick, offline sweeps of a filesystem tree (for examp
 your development folder) to find projects and collect any critical vulnerabilities
 reported by npm. It was created to help triage incidents involving compromised
 packages and to produce reproducible JSON reports for further analysis.
+ 
+The [compromied npm packages on September 8, 2025](https://www.aikido.dev/blog/npm-debug-and-chalk-packages-compromised) motivated me to produce this.
+
+**I deliberately wrote this in Python instead of using NodeJS.**
 
 ## Quick Usage
 
 ### Audit a folder (recursively) and produce JSON outputs:
 
 ```shell
-python .\run_npm_audits.py --start C:\Dev
-```
-
-```shell
 python .\run_npm_audits.py -s C:\Dev
 ```
 
 ### Audit a specific set of modules and versions
-
-```shell
-python .\run_npm_audits.py --start C:\Dev --check-file .\compromised_modules.json
-```
 
 ```shell
 python .\run_npm_audits.py -s C:\Dev -c .\compromised_modules.json
@@ -43,6 +39,8 @@ python .\run_npm_audits.py -s C:\Dev -c .\compromised_modules.json
   - `audits-<start_directory>_<timestamp>_critical_versions.json` — a summarized map of module@version occurrences for critical findings
 
 ## Usage
+
+Run the script with an `-s` or `--start` parameter to supply a starting location.
 
 ### Check an explicit list of module@version pairs
 
