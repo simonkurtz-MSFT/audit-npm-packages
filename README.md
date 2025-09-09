@@ -6,7 +6,7 @@ The script is intended for quick, offline sweeps of a filesystem tree (for examp
 your development folder) to find projects and collect any critical vulnerabilities
 reported by npm. It was created to help triage incidents involving compromised
 packages and to produce reproducible JSON reports for further analysis.
- 
+
 The [compromied npm packages on September 8, 2025](https://www.aikido.dev/blog/npm-debug-and-chalk-packages-compromised) motivated me to produce this.
 
 **I deliberately wrote this in Python instead of using NodeJS.**
@@ -17,6 +17,12 @@ The [compromied npm packages on September 8, 2025](https://www.aikido.dev/blog/n
 
 ```shell
 python .\run_npm_audits.py -s C:\Dev
+```
+
+Wrap folders with whitespace in quotes:
+
+```shell
+python .\run_npm_audits.py -s "C:\Program Files"
 ```
 
 ### Audit a specific set of modules and versions
